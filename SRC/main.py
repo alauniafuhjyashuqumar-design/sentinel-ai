@@ -1,0 +1,6 @@
+print("================================")
+print("       SENTINEL AI")
+print("================================")
+print("System initialized successfully!")
+print("Artificial Intelligence module: READY")
+print("Project Day 1: COMPLETE")
