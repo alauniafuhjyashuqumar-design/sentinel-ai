@@ -13,4 +13,4 @@ A comprehensive Full-Stack AI project designed to detect fraudulent transactions
 - Git & GitHub (Version Control & Portfolio)
 
 ---
-Developed with 🤍 by Noor Alhuda Qusay .
+Developed with 💜🐾 by Noor Alhuda Qusay .
