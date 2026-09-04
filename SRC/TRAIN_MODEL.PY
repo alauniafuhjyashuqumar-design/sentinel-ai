@@ -1,63 +1,58 @@
 import os
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 import joblib
 
 def train_fraud_model():
-    print("🔄 جاري فحص البيانات والملفات...")
+    print("[*] Loading dataset for training...")
     
-    # إنشاء المجلدات تلقائياً إذا مو موجودة
-    os.makedirs("data", exist_ok=True)
-    os.makedirs("models", exist_ok=True)
+    # تحديد مسار البيانات بدقة
+    file_path = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'transactions.csv')
+    df = pd.read_csv(file_path)
     
-    data_path = "data/transactions.csv"
+    # تحديد الـ Features (المتغيرات المستقلة) والـ Target (الهدف)
+    # الاعتماد على الأعمدة الموجودة في الجدول
+    X = df[['amount', 'oldbalanceOrg', 'newbalanceDest']]
+    y = df['is_fraud']
     
-    # إذا ملف البيانات مو موجود، ننشئ بيانات تجريبية ذكية وصحيحة تلقائياً!
-    if not os.path.exists(data_path):
-        print("⚙️ جاري توليد بيانات المعاملات التجريبية تلقائياً...")
-        np.random.seed(42)
-        n_samples = 1000
-        synthetic_data = {
-            'amount': np.random.exponential(scale=150, size=n_samples),
-            'oldbalanceOrg': np.random.uniform(1000, 60000, size=n_samples),
-            'newbalanceDest': np.random.uniform(0, 60000, size=n_samples),
-            'is_fraud': np.random.choice([0, 1], size=n_samples, p=[0.94, 0.06])
-        }
-        df = pd.DataFrame(synthetic_data)
-        df.to_csv(data_path, index=False)
-        print("✅ تم إنشاء ملف البيانات بنجاح في مجلد data.")
-    else:
-        df = pd.read_csv(data_path)
-
-    # فصل الميزات (Features) عن عمود الاحتيال (Target)
-    if 'is_fraud' in df.columns:
-        X = df.drop(columns=['is_fraud'])
-        y = df['is_fraud']
-    else:
-        X = df.iloc[:, :-1]
-        y = df.iloc[:, -1]
-
-    # تقسيم البيانات للتدريب والاختبار
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # تدريب النموذج
-    print("🚀 جاري تدريب نموذج كشف الاحتيال (SENTINEL AI)...")
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    # تقسيم البيانات إلى تدريب (80%) واختبار (20%) مع الحفاظ على نسبة التوزيع (stratify)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    print("[*] Training Random Forest Classifier with class balancing...")
+    # إضافة class_weight='balanced' لحل مشكلة عدم توازن البيانات
+    model = RandomForestClassifier(
+        n_estimators=100, 
+        class_weight='balanced', 
+        random_state=42
+    )
     model.fit(X_train, y_train)
-
-    # تقييم النموذج
-    predictions = model.predict(X_test)
-    print("📊 تقرير أداء النموذج:")
-    print(classification_report(y_test, predictions))
-
-    # حفظ النموذج المدرب
-    model_path = "models/fraud_model.pkl"
+    
+    print("[*] Evaluating model performance...")
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    
+    # طباعة نتائج التقييم التفصيلية لعرضها أمام الدكتور
+    print("\n--- Confusion Matrix ---")
+    print(confusion_matrix(y_test, y_pred))
+    
+    print("\n--- Classification Report ---")
+    print(classification_report(y_test, y_pred))
+    
+    try:
+        roc_auc = roc_auc_score(y_test, y_prob)
+        print(f"ROC-AUC Score: {roc_auc:.4f}")
+    except Exception as e:
+        print("Could not calculate ROC-AUC:", e)
+        
+    # حفظ النموذج المدرب في مجلد MODELS
+    os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'MODELS'), exist_ok=True)
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'MODELS', 'fraud_model.pkl')
     joblib.dump(model, model_path)
-    print(f"🎉 تم حفظ النموذج المدرب بنجاح في المسار: {model_path}")
+    print(f"[*] Model saved successfully to {model_path}")
 
 if __name__ == "__main__":
     train_fraud_model()
-    

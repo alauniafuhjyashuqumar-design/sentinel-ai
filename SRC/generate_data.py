@@ -1,47 +1,43 @@
+import os
 import pandas as pd
 import numpy as np
-import os
 
-def generate_transactions(num_samples=1000):
+def generate_realistic_data():
+    print("[*] Generating realistic synthetic fraud dataset...")
     np.random.seed(42)
+    n_samples = 1000
     
-    # زيادة نسبة الاحتيال إلى 10% حتى يتعلّم الموديل صح
-    is_fraud = np.random.choice([0, 1], size=num_samples, p=[0.90, 0.10])
+    # توليد المعاملات الطبيعية (Normal Transactions)
+    amount = np.random.exponential(scale=150, size=n_samples)
+    oldbalanceOrg = np.random.uniform(1000, 50000, size=n_samples)
+    newbalanceDest = oldbalanceOrg + amount + np.random.normal(0, 5, size=n_samples)
     
-    amounts = []
-    failed_logins = []
-    location_changes = []
-    user_ids = [f"user_{np.random.randint(1, 100)}" for _ in range(num_samples)]
-    device_ids = [f"device_{np.random.randint(1, 150)}" for _ in range(num_samples)]
+    # مصفوفة الهدف (الافتراضي كلها طبيعية 0)
+    is_fraud = np.zeros(n_samples, dtype=int)
     
-    for fraud in is_fraud:
-        if fraud == 1:
-            # معاملات الاحتيال: مبالغ عالية + محاولات دخول فاشلة متكررة + تغيير موقع
-            amounts.append(round(np.random.uniform(500, 5000), 2))
-            failed_logins.append(np.random.randint(2, 6))
-            location_changes.append(np.random.choice([0, 1], p=[0.2, 0.8]))
-        else:
-            # المعاملات الطبيعية: مبالغ اعتيادية + دخول سليم
-            amounts.append(round(np.random.uniform(10, 300), 2))
-            failed_logins.append(np.random.choice([0, 1], p=[0.9, 0.1]))
-            location_changes.append(np.random.choice([0, 1], p=[0.85, 0.15]))
-            
+    # إضافة قاعدة منطقية للاحتيال (Fraud Pattern):
+    # جعل 5% من المعاملات احتيالية تتميز بمبلغ ضخم جداً ورصيد غير متطابق
+    fraud_indices = np.random.choice(n_samples, size=int(n_samples * 0.05), replace=False)
+    
+    for idx in fraud_indices:
+        amount[idx] = np.random.uniform(8000, 25000)  # مبلغ ضخم مشبوه
+        oldbalanceOrg[idx] = np.random.uniform(0, 200)   # رصيد الحساب شبه فارغ
+        newbalanceDest[idx] = oldbalanceOrg[idx] - amount[idx] # تلاعب بالرصيد
+        is_fraud[idx] = 1
+        
+    # تجميع البيانات في جدول Pandas DataFrame
     df = pd.DataFrame({
-        'user_id': user_ids,
-        'device_id': device_ids,
-        'amount': amounts,
-        'failed_logins': failed_logins,
-        'location_change': location_changes,
+        'amount': amount,
+        'oldbalanceOrg': oldbalanceOrg,
+        'newbalanceDest': newbalanceDest,
         'is_fraud': is_fraud
     })
     
-    output_dir = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'raw')
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, 'transactions.csv')
-    
+    # التأكد من وجود مجلد DATA وحفظ الملف فيه
+    os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'DATA'), exist_ok=True)
+    file_path = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'transactions.csv')
     df.to_csv(file_path, index=False)
-    print(f"[+] Successfully generated {num_samples} transactions ({df['is_fraud'].sum()} fraud cases) at: {file_path}")
+    print(f"[*] New realistic dataset generated successfully at: {file_path}")
 
 if __name__ == "__main__":
-    generate_transactions()
-    
+    generate_realistic_data()

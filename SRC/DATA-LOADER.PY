@@ -7,7 +7,7 @@ def load_and_preprocess_data():
     print("[*] Loading raw dataset for preprocessing...")
     
     # تحديد مسار البيانات الخام
-    file_path = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'raw', 'transactions.csv')
+    file_path = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'transactions.csv')
     df = pd.read_csv(file_path)
     
     # معالجة الأعمدة النصية وتحويلها إلى قيم رقمية (Encoding)

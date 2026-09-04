@@ -1,42 +1,56 @@
-from click import File
-import pandas as pd
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
+import joblib
+import pandas as pd
 
-def predict_transaction(user_id, device_id, amount, failed_logins, location_change):
-    # بيانات تجريبية سابقة لغرض التدريب السريع داخل الكود أو نقدر نحفظ الموديل بملف ونستدعيه
-    # لسهولة التنفيذ، خلينا ندرب نموذج مصغر ونختبره مباشرة:
-    file_path = os.path.join(os.path.dirname(__file__), '..', 'DATA', 'raw', 'transactions.csv')
-    df = pd.read_csv(file_path)
-    
-    le_user = LabelEncoder()
-    le_device = LabelEncoder()
-    df['user_id_encoded'] = le_user.fit_transform(df['user_id'])
-    df['device_id_encoded'] = le_device.fit_transform(df['device_id'])
-    
-    X = df[['user_id_encoded', 'device_id_encoded', 'amount', 'failed_logins', 'location_change']]
-    y = df['is_fraud']
-    
-    model = RandomForestClassifier(n_estimators=100, class_weight='balanced', random_state=42)
-    model.fit(X, y)
-    
-    # معالجة المدخلات الجديدة (بافتراض أن المستخدم أو الجهاز قد يكون جديداً، نستخدم transform بحذر أو نتأكد)
-    try:
-        u_encoded = le_user.transform([user_id])[0]
-    except ValueError:
-        u_encoded = 0 # قيمة افتراضية إذا كان المستخدم جديد كلياً
+def predict_transaction(amount, old_balance, new_balance):
+    # تحديد مسار النموذج المحفوظ بدقة
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'MODELS', 'fraud_model.pkl')
+    if not os.path.exists(model_path):
+        raise FileNotFoundError("Model file not found! Please train the model first.")
         
-    try:
-        d_encoded = le_device.transform([device_id])[0]
-    except ValueError:
-        d_encoded = 0
-
-    sample = [[u_encoded, d_encoded, amount, failed_logins, location_change]]
-    prediction = model.predict(sample)
+    # تحميل النموذج
+    model = joblib.load(model_path)
     
-    if prediction[0] == 1:
-        print("\n🚨 [WARNING] تحذير خطير: هذه المعاملة [احتيالية] وتم حجزها بنجاح!")
+    # تجهيز البيانات كـ DataFrame بنفس أسماء الأعمدة المستخدمة في التدريب
+    input_data = pd.DataFrame([[amount, old_balance, new_balance]], 
+                              columns=['amount', 'oldbalanceOrg', 'newbalanceDest'])
+    
+    # التنبؤ بالنتيجة والاحتمالية (Risk Score)
+    prediction = model.predict(input_data)[0]
+    probability = model.predict_proba(input_data)[0][1] # احتمالية الاحتيال (0 إلى 1)
+    
+    risk_score = round(probability * 100, 2) # تحويلها إلى نسبة مئوية
+    
+    # تحديد مستويات الخطورة بشكل علمي ومنطقي
+    if risk_score < 30:
+        risk_level = "Low"
+    elif risk_score < 60:
+        risk_level = "Medium"
+    elif risk_score < 85:
+        risk_level = "High"
     else:
-        print("\n✅ [SAFE] المعاملة سليمة وطبيعية، مبروك المرور!")
-predict_transaction("user_50", "device_10", 3500.0, 4, 1)
+        risk_level = "Critical"
+        
+    # إضافة تفسير منطقي (Explainability) لعرضه للمستخدم وللدكتور
+    reasons = []
+    if amount > 5000:
+        reasons.append("مبلغ المعاملة مرتفع جداً مقارنة بالمعايير المعتادة.")
+    if old_balance < 500:
+        reasons.append("الرصيد المتاح في الحساب المرسل قليل جداً ولا يغطي قيمة المعاملة بشكل آمن.")
+    if prediction == 1 and not reasons:
+        reasons.append("سلوك المعاملة يتطابق مع الأنماط الاحتيالية المكتشفة في بيانات التدريب.")
+    elif prediction == 0:
+        reasons.append("المعاملة تقع ضمن النطاق الطبيعي للعمليات المالية الآمنة.")
+        
+    return {
+        "is_fraud": int(prediction),
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "reasons": reasons
+    }
+
+if __name__ == "__main__":
+    # اختبار تجريبي سريع للتنبؤ بمعاملة مشبوهة
+    print("[*] Testing prediction with a sample suspicious transaction...")
+    sample_result = predict_transaction(15000, 50, -14950)
+    print("Test Result:", sample_result)
