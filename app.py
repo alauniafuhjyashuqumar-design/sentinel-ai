@@ -1,3 +1,22 @@
+import io
+import qrcode
+
+# --- إضافة اسمِج واسم روان والتطوير في الشريط الجانبي ---
+st.sidebar.title("🛡️ About System")
+st.sidebar.markdown(
+    "**Developed by:** Noor Al-huda & Rawan ✨", unsafe_allow_html=True
+)
+st.sidebar.markdown("---")
+
+# --- توليد وعرض QR Code للرابط الرسمي ---
+st.sidebar.subheader("📱 App QR Code")
+app_url = "https://sentinel-ai-noor.streamlit.app"
+qr = qrcode.make(app_url)
+buf = io.BytesIO()
+qr.save(buf, format="PNG")
+st.sidebar.image(
+    buf.getvalue(), caption="Scan to open on mobile", use_container_width=True
+)
 import os
 import joblib
 import pandas as pd
